@@ -22,7 +22,7 @@ This game contains flashing lights and fast motion sequences.
 ## Things that need fixing
 * Use the game's own haptic feedback
 * In-game UI and pause menu are broken
-* 6DoF and Roomscale needs to be reimplemented
+* 6DoF and Roomscale need to be reimplemented
 * CPU is underutilized
 
 ## How to use
@@ -31,7 +31,9 @@ This game contains flashing lights and fast motion sequences.
    
    ``` -insecure -window -novid +mat_motion_blur_percent_of_screen_max 0 +mat_queue_mode 0 +mat_vsync 0 +mat_antialias 0 +mat_grain_scale_override 0 -width 1280 -height 720 ```
 
-3. At the menu, feel free to change [these video settings](https://i.imgur.com/yYQMXs6.jpg).
+3. <details><summary>At the menu, feel free to change these video settings.</summary>
+   <img src="https://github.com/Gistix/portal2vr/assets/6422804/c26959d8-842f-451d-a1c5-ba4da953129d">
+   </details>
 4. Load into a chapter. 
 5. To recenter the camera height, press down on the left stick. To see the HUD, aim the controller up or down.
 
@@ -41,7 +43,7 @@ If you have no audio:
   
 If the game isn't loading in VR:
 * Try opening SteamVR before the game
-* Disable SteamVR theater in [Steam settings](https://external-preview.redd.it/1WdLExouo_YKhTGT6C5GGrOjeWO7qNdIdDRvIRBhw-0.png?auto=webp&s=0d4447a9d954e1ec15b2c010cf50eeabd51f4197)
+* <details><summary>Disable SteamVR theater in Steam settings</summary><img src="https://github.com/Gistix/portal2vr/assets/6422804/ef628fa6-0719-41e7-899d-185e435abada"</details>
 
 If the game is stuttering, try: 
 * Steam Settings -> Shader Pre-Caching -> Allow background processing of Vulkan shaders
