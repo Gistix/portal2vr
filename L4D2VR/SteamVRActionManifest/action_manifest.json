@@ -50,6 +50,10 @@
 			"type": "boolean"
 		},
 		{
+			"name": "/actions/main/in/ThirdAttack",
+			"type": "boolean"
+		},
+		{
 			"name": "/actions/main/in/Jump",
 			"type": "boolean"
 		},
@@ -154,6 +158,7 @@
 			"/actions/main" : "Main",
 			"/actions/main/in/PrimaryAttack" : "Primary Attack",
 			"/actions/main/in/SecondaryAttack" : "Secondary Attack",
+			"/actions/main/in/ThirdAttack" : "Third Attack",
 			"/actions/main/in/Jump" : "Jump",
 			"/actions/main/in/Walk" : "Walk",
 			"/actions/main/in/Turn" : "Turn",

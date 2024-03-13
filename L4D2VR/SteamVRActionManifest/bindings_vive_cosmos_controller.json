@@ -80,6 +80,15 @@
             {
                "inputs" : {
                   "click" : {
+                     "output" : "/actions/main/in/ThirdAttack"
+                  }
+               },
+               "mode" : "button",
+               "path" : "/user/hand/left/input/trigger"
+            },
+            {
+               "inputs" : {
+                  "click" : {
                      "output" : "/actions/main/in/PrimaryAttack"
                   }
                },
