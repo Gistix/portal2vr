@@ -1,7 +1,13 @@
 #pragma once
 #include <cstdint>
 #include <array>
+#include <Windows.h>
 #include "vector.h"
+
+struct IDirect3DDevice9;
+struct ID3D11Device;
+struct ID3D11DeviceContext;
+class D3D9Hooks;
 
 class IClientEntityList;
 class IEngineTrace;
@@ -70,6 +76,11 @@ public:
     Offsets *m_Offsets = nullptr;
     VR *m_VR = nullptr;
     Hooks *m_Hooks = nullptr;
+    D3D9Hooks *m_D3D9Hooks = nullptr;
+
+    IDirect3DDevice9 *m_D3D9Device = nullptr;
+    ID3D11Device *m_D3D11Device = nullptr;
+    ID3D11DeviceContext *m_D3D11Context = nullptr;
 
     bool m_Initialized = false;
 
@@ -81,6 +92,7 @@ public:
     bool m_CachedArmsModel = false;
 
     Game();
+    void Initialize();
 
     void *GetInterface(const char *dllname, const char *interfacename);
 

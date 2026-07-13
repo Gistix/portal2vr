@@ -7,8 +7,17 @@
 #include "offsets.h"
 #include "sigscanner.h"
 
+#include "d3d9hooks.h"
+
 Game::Game()
 {
+    m_D3D9Hooks = new D3D9Hooks();
+}
+
+void Game::Initialize()
+{
+    D3D9Hooks::m_Game = this;
+
     while (!(m_BaseClient = (uintptr_t)GetModuleHandle("client.dll")))
         Sleep(50);
     while (!(m_BaseEngine = (uintptr_t)GetModuleHandle("engine.dll")))
@@ -36,6 +45,7 @@ Game::Game()
     m_ClientMode = **(IClientMode***)(m_Offsets->g_pClientMode.address);
 
     m_VR = new VR(this);
+    D3D9Hooks::m_VR = m_VR;
     m_Hooks = new Hooks(this);
 
     m_Initialized = true;

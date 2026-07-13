@@ -1,5 +1,6 @@
 #include "vr.h"
 #include <Windows.h>
+#include <d3d9.h>
 #include <d3d11.h>
 #include "sdk.h"
 #include "game.h"
@@ -286,14 +287,14 @@ void VR::SubmitVRTextures()
 		vr::VROverlay()->SetOverlayTextureBounds(m_MainMenuHandle, &bounds);
 		vr::VROverlay()->ShowOverlay(m_MainMenuHandle);
 
-		if (!m_OverlayTextureSet && m_D3D9Device && m_D3D9Textures[Texture_Overlay].texture && m_D3D11Textures[Texture_Overlay])
+		if (!m_OverlayTextureSet && m_Game->m_D3D9Device && m_D3D9Textures[Texture_Overlay].texture && m_D3D11Textures[Texture_Overlay])
 		{
 			IDirect3DSurface9 *pBackBuf = nullptr, *pOverlaySurf = nullptr;
-			if (SUCCEEDED(m_D3D9Device->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, &pBackBuf)))
+			if (SUCCEEDED(m_Game->m_D3D9Device->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, &pBackBuf)))
 			{
 				if (SUCCEEDED(m_D3D9Textures[Texture_Overlay].texture->GetSurfaceLevel(0, &pOverlaySurf)))
 				{
-					m_D3D9Device->StretchRect(pBackBuf, NULL, pOverlaySurf, NULL, D3DTEXF_LINEAR);
+					m_Game->m_D3D9Device->StretchRect(pBackBuf, NULL, pOverlaySurf, NULL, D3DTEXF_LINEAR);
 					pOverlaySurf->Release();
 				}
 				pBackBuf->Release();

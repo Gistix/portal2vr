@@ -1,6 +1,7 @@
 // dllmain.cpp : Defines the entry point for the DLL application.
 #include <Windows.h>
 #include <iostream>
+#include "MinHook.h"
 #include "game.h"
 #include "hooks.h"
 #include "vr.h"
@@ -8,14 +9,12 @@
 
 DWORD WINAPI InitL4D2VR(HMODULE hModule)
 {
-// Release if buggy, so we'll be releasing the debug binary
 #ifdef _DEBUG
     AllocConsole();
     FILE *fp;
     freopen_s(&fp, "CONOUT$", "w", stdout);
 #endif
 
-    // Make sure -insecure is used
     LPWSTR *szArglist;
     int nArgs;
     szArglist = CommandLineToArgvW(GetCommandLineW(), &nArgs);
@@ -31,6 +30,8 @@ DWORD WINAPI InitL4D2VR(HMODULE hModule)
         ExitProcess(0);
 
     g_Game = new Game();
+    MH_Initialize();
+    g_Game->Initialize();
 
     return 0;
 }

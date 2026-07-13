@@ -129,9 +129,6 @@ public:
 		HANDLE sharedHandle = nullptr;
 	};
 
-	IDirect3DDevice9 *m_D3D9Device = nullptr;
-	ID3D11Device *m_D3D11Device = nullptr;
-	ID3D11DeviceContext *m_D3D11Context = nullptr;
 	SharedD3D9Texture m_D3D9Textures[TextureID::Total];
 	ID3D11Texture2D *m_D3D11Textures[TextureID::Total] = {};
 

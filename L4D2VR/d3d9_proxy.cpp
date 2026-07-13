@@ -2,6 +2,11 @@
 #include <d3d9.h>
 #include <iostream>
 
+extern void SetupD3D9DeviceHooks(IDirect3D9* pD3D);
+
+EXTERN_C const IID IID_IDirect3D9 = { 0x81bdcbca, 0x64d4, 0x426d, {0xae, 0x8d, 0xad, 0x1, 0x47, 0xf4, 0x27, 0x5c} };
+EXTERN_C const IID IID_IDirect3D9Ex = { 0x02177241, 0x69FC, 0x400C, {0x8F, 0xF1, 0x93, 0xA4, 0x4D, 0xF6, 0x86, 0x1D} };
+
 static HMODULE g_hRealD3D9 = nullptr;
 
 void LoadRealD3D9()
@@ -37,8 +42,13 @@ extern "C" IDirect3D9* WINAPI Direct3DCreate9(UINT SDKVersion)
     std::cout << "[VR] Direct3DCreate9: SDKVersion=" << SDKVersion << " returnAddress=" << _ReturnAddress() << "\n";
     LoadRealD3D9();
 
-    auto realFn = (HRESULT(WINAPI*)(UINT, IDirect3D9Ex**))GetProcAddress(g_hRealD3D9, "Direct3DCreate9Ex");
-    IDirect3D9Ex* pEx = nullptr;
-    auto hr = realFn(SDKVersion, &pEx);
-    return pEx;
+    auto realExFn = (HRESULT(WINAPI*)(UINT, IDirect3D9Ex**))GetProcAddress(g_hRealD3D9, "Direct3DCreate9Ex");
+    IDirect3D9Ex* pD3D9Ex = nullptr;
+    auto hr = realExFn(SDKVersion, &pD3D9Ex);
+
+    if (pD3D9Ex)
+    {
+        SetupD3D9DeviceHooks(pD3D9Ex);
+    }
+    return pD3D9Ex;
 }
