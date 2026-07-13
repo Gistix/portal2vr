@@ -4,6 +4,7 @@
 
 static bool g_DeviceHooksSetup = false;
 static bool g_TextureHookSetup = false;
+static bool g_BufferHookSetup = false;
 static bool g_PresentHookSetup = false;
 
 D3D9Hooks::D3D9Hooks()
@@ -29,8 +30,17 @@ HRESULT __stdcall D3D9Hooks::dCreateDevice(
 	DWORD BehaviorFlags, D3DPRESENT_PARAMETERS* pPresentationParameters,
 	IDirect3DDevice9** ppReturnedDevice)
 {
-	HRESULT hr = hkCreateDevice.fOriginal(d3d9, Adapter, DeviceType, hFocusWindow,
-		BehaviorFlags, pPresentationParameters, ppReturnedDevice);
+	HRESULT hr;
+	IDirect3D9Ex* d3d9ex = nullptr;
+	d3d9->QueryInterface(IID_IDirect3D9Ex, (void**)&d3d9ex);
+
+	std::cout << "[VR] dCreateDevice: using CreateDeviceEx\n";
+
+	hr = d3d9ex->CreateDeviceEx(Adapter, DeviceType, hFocusWindow,
+		BehaviorFlags, pPresentationParameters, nullptr,
+		(IDirect3DDevice9Ex**)ppReturnedDevice);
+
+	d3d9ex->Release();
 
 	std::cout << "[VR] dCreateDevice: hr=" << std::hex << hr << " p=" << (void*)*ppReturnedDevice << std::dec << "\n";
 
@@ -49,18 +59,29 @@ HRESULT __stdcall D3D9Hooks::dCreateDevice(
 			}
 		}
 
+		void** devVtable = *(void***)*ppReturnedDevice;
+
 		if (!g_TextureHookSetup)
 		{
-			void** devVtable = *(void***)*ppReturnedDevice;
 			MH_CreateHook(devVtable[23], &D3D9Hooks::dCreateTexture, (LPVOID*)&D3D9Hooks::hkCreateTexture.fOriginal);
 			MH_EnableHook(devVtable[23]);
 			g_TextureHookSetup = true;
 			std::cout << "[VR] dCreateDevice: CreateTexture hook installed (vtable[23])\n";
 		}
 
+		if (!g_BufferHookSetup)
+		{
+			MH_CreateHook(devVtable[26], &D3D9Hooks::dCreateVertexBuffer, (LPVOID*)&D3D9Hooks::hkCreateVertexBuffer.fOriginal);
+			MH_EnableHook(devVtable[26]);
+			MH_CreateHook(devVtable[27], &D3D9Hooks::dCreateIndexBuffer, (LPVOID*)&D3D9Hooks::hkCreateIndexBuffer.fOriginal);
+			MH_EnableHook(devVtable[27]);
+			g_BufferHookSetup = true;
+			std::cout << "[VR] dCreateDevice: CreateVertexBuffer hook installed (vtable[26])\n";
+			std::cout << "[VR] dCreateDevice: CreateIndexBuffer hook installed (vtable[27])\n";
+		}
+
 		if (!g_PresentHookSetup)
 		{
-			void** devVtable = *(void***)*ppReturnedDevice;
 			MH_CreateHook(devVtable[17], &D3D9Hooks::dPresent, (LPVOID*)&D3D9Hooks::hkPresent.fOriginal);
 			MH_EnableHook(devVtable[17]);
 			g_PresentHookSetup = true;
@@ -84,7 +105,7 @@ HRESULT __stdcall D3D9Hooks::dCreateTexture(IDirect3DDevice9* device, UINT Width
 		<< " Levels=" << Levels << " Pool=" << Pool << " Usage=" << std::hex << Usage << std::dec << "\n";
 
 	HANDLE sharedHandle = nullptr;
-	HRESULT hr = hkCreateTexture.fOriginal(device, Width, Height, 1, Usage, Format, D3DPOOL_DEFAULT, ppTexture, &sharedHandle);
+	HRESULT hr = hkCreateTexture.fOriginal(device, Width, Height, Levels, Usage, Format, D3DPOOL_DEFAULT, ppTexture, &sharedHandle);
 
 	std::cout << "[VR] dCreateTexture: hr=0x" << std::hex << hr << " p=" << (void*)*ppTexture << " handle=" << (void*)sharedHandle << std::dec << "\n";
 
@@ -106,6 +127,24 @@ HRESULT __stdcall D3D9Hooks::dCreateTexture(IDirect3DDevice9* device, UINT Width
 	}
 
 	return hr;
+}
+
+HRESULT __stdcall D3D9Hooks::dCreateVertexBuffer(IDirect3DDevice9* device, UINT Length, DWORD Usage, DWORD FVF, D3DPOOL Pool, IDirect3DVertexBuffer9** ppVertexBuffer, HANDLE* pSharedHandle)
+{
+	if (Pool != D3DPOOL_DEFAULT)
+	{
+		std::cout << "[VR] dCreateVertexBuffer: overriding pool " << Pool << " -> D3DPOOL_DEFAULT\n";
+	}
+	return hkCreateVertexBuffer.fOriginal(device, Length, Usage, FVF, D3DPOOL_DEFAULT, ppVertexBuffer, pSharedHandle);
+}
+
+HRESULT __stdcall D3D9Hooks::dCreateIndexBuffer(IDirect3DDevice9* device, UINT Length, DWORD Usage, D3DFORMAT Format, D3DPOOL Pool, IDirect3DIndexBuffer9** ppIndexBuffer, HANDLE* pSharedHandle)
+{
+	if (Pool != D3DPOOL_DEFAULT)
+	{
+		std::cout << "[VR] dCreateIndexBuffer: overriding pool " << Pool << " -> D3DPOOL_DEFAULT\n";
+	}
+	return hkCreateIndexBuffer.fOriginal(device, Length, Usage, Format, D3DPOOL_DEFAULT, ppIndexBuffer, pSharedHandle);
 }
 
 HRESULT __stdcall D3D9Hooks::dPresent(IDirect3DDevice9* device, const RECT* pSourceRect, const RECT* pDestRect, HWND hDestWindowOverride, const RGNDATA* pDirtyRegion)
