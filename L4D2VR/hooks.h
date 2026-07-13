@@ -1,5 +1,6 @@
 #pragma once
 #include <iostream>
+#include <d3d9.h>
 #include "MinHook.h"
 #include "bitbuf.h"
 
@@ -135,6 +136,11 @@ typedef int(__cdecl* tPrecacheParticleSystem)(const char* pParticleSystemName);
 typedef void(__thiscall* tPrecache)(void* thisptr);
 typedef bool(__thiscall* tCHudCrosshair_ShouldDraw)(void* thisptr);
 
+typedef bool(__thiscall* tShaderDeviceConnect)(void* thisptr, int a2);
+typedef HRESULT(WINAPI* tDirect3DCreate9ExFn)(UINT SDKVersion, IDirect3D9Ex**);
+typedef HRESULT(__stdcall* tCreateDeviceFn)(IDirect3D9* d3d9, UINT Adapter, D3DDEVTYPE DeviceType, HWND hFocusWindow, DWORD BehaviorFlags, D3DPRESENT_PARAMETERS* pPresentationParameters, IDirect3DDevice9** ppReturnedDevice);
+typedef HRESULT(__stdcall* tCreateTexture)(IDirect3DDevice9* device, UINT Width, UINT Height, UINT Levels, DWORD Usage, D3DFORMAT Format, D3DPOOL Pool, IDirect3DTexture9** ppTexture, HANDLE* pSharedHandle);
+
 typedef void*(__cdecl* tUTIL_Portal_FirstAlongRay)(const Ray_t& ray, float& fMustBeCloserThan);
 typedef float(__cdecl* tUTIL_IntersectRayWithPortal)(const Ray_t& ray, const void* pPortal);
 typedef void(__cdecl* tUTIL_Portal_AngleTransform)(const VMatrix& matThisToLinked, const QAngle& qSource, QAngle& qTransformed);
@@ -207,6 +213,9 @@ public:
 	static inline Hook<tPrecache> hkPrecache;
 	static inline Hook<tCHudCrosshair_ShouldDraw> hkCHudCrosshair_ShouldDraw;
 	static inline Hook<tCWeaponPortalgun_FirePortal> hkCWeaponPortalgun_FirePortal;
+	static inline Hook<tShaderDeviceConnect> hkShaderDeviceConnect;
+	static inline Hook<tCreateDeviceFn> hkCreateDevice;
+	static inline Hook<tCreateTexture> hkCreateTexture;
 
 	//Precache
 
@@ -290,6 +299,9 @@ public:
 	static bool __fastcall dCHudCrosshair_ShouldDraw(void* ecx, void* edx);
 
 	static void* __fastcall dCWeaponPortalgun_FirePortal(void* ecx, void* edx, bool bPortal2, Vector* pVector = 0);
+	static bool __fastcall dShaderDeviceConnect(void* ecx, void* edx, int a2);
+	static HRESULT __stdcall dCreateDevice(IDirect3D9* d3d9, UINT Adapter, D3DDEVTYPE DeviceType, HWND hFocusWindow, DWORD BehaviorFlags, D3DPRESENT_PARAMETERS* pPresentationParameters, IDirect3DDevice9** ppReturnedDevice);
+	static HRESULT __stdcall dCreateTexture(IDirect3DDevice9* device, UINT Width, UINT Height, UINT Levels, DWORD Usage, D3DFORMAT Format, D3DPOOL Pool, IDirect3DTexture9** ppTexture, HANDLE* pSharedHandle);
 
 	static inline int m_PushHUDStep;
 	static inline bool m_PushedHud;

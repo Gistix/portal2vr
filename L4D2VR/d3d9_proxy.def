@@ -1,0 +1,3 @@
+EXPORTS
+  D3DPERF_SetOptions @5
+  Direct3DCreate9 @9

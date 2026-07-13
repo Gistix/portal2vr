@@ -6,6 +6,7 @@
 #include "vr.h"
 #include "offsets.h"
 #include <iostream>
+#include <d3d11.h>
 
 Hooks::Hooks(Game *game)
 {
@@ -57,6 +58,7 @@ Hooks::Hooks(Game *game)
 	//kClientThink.enableHook();
 	hkPrecache.enableHook();
 	hkCHudCrosshair_ShouldDraw.enableHook();
+	hkShaderDeviceConnect.enableHook();
 }
 
 Hooks::~Hooks()
@@ -173,6 +175,8 @@ int Hooks::initSourceHooks()
 	EntityIndex = (tEntindex)m_Game->m_Offsets->CBaseEntity_entindex.address;
 	GetOwner = (tGetOwner)m_Game->m_Offsets->GetOwner.address;
 	GetFullScreenTexture = (tGetFullScreenTexture)m_Game->m_Offsets->GetFullScreenTexture.address;
+
+	hkShaderDeviceConnect.createHook((LPVOID)m_Game->m_Offsets->ShaderDeviceConnect.address, &dShaderDeviceConnect);
 	return 1;
 } 
 
@@ -915,4 +919,124 @@ double __fastcall Hooks::dGetFOV(void* ecx, void* edx) {
 
 double __fastcall Hooks::dGetViewModelFOV(void* ecx, void* edx) {
 	return m_VR->m_Fov;
+}
+
+static bool g_DeviceHooksSetup = false;
+static bool g_TextureHookSetup = false;
+
+extern void LoadRealD3D9();
+extern HMODULE GetRealD3D9();
+
+static void SetupDeviceHooks(IDirect3D9Ex* pD3D9Ex)
+{
+	if (g_DeviceHooksSetup)
+		return;
+
+	void** vtable = *(void***)pD3D9Ex;
+	MH_CreateHook(vtable[16], &Hooks::dCreateDevice, (LPVOID*)&Hooks::hkCreateDevice.fOriginal);
+	MH_EnableHook(vtable[16]);
+	g_DeviceHooksSetup = true;
+}
+
+bool __fastcall Hooks::dShaderDeviceConnect(void* ecx, void* edx, int a2)
+{
+	std::cout << "[VR] dShaderDeviceConnect called\n";
+
+	auto baseConnect = (tShaderDeviceConnect)m_Game->m_Offsets->ShaderDeviceMgrBaseConnect.address;
+
+	std::cout << "[VR] baseConnect: " << (void*)baseConnect << "\n";
+	if (!baseConnect(ecx, a2))
+	{
+		std::cout << "[VR] baseConnect FAILED\n";
+		return false;
+	}
+	std::cout << "[VR] baseConnect OK\n";
+
+	LoadRealD3D9();
+	HMODULE hReal = GetRealD3D9();
+	std::cout << "[VR] GetRealD3D9 returned: " << (void*)hReal << "\n";
+
+	auto direct3DCreate9Ex = (HRESULT(WINAPI*)(UINT, IDirect3D9Ex**))GetProcAddress(hReal, "Direct3DCreate9Ex");
+
+	IDirect3D9Ex* pD3D9Ex = nullptr;
+	HRESULT hr = direct3DCreate9Ex(D3D_SDK_VERSION, &pD3D9Ex);
+	std::cout << "[VR] Direct3DCreate9Ex: hr=" << std::hex << hr << " p=" << (void*)pD3D9Ex << std::dec << "\n";
+
+	((DWORD*)ecx)[12] = (DWORD)pD3D9Ex;
+
+	if (FAILED(hr) || !pD3D9Ex)
+	{
+		std::cout << "[VR] Direct3DCreate9Ex FAILED\n";
+		return false;
+	}
+
+	std::cout << "[VR] Setting up device hooks...\n";
+	SetupDeviceHooks(pD3D9Ex);
+	std::cout << "[VR] dShaderDeviceConnect OK\n";
+
+	return true;
+}
+
+HRESULT __stdcall Hooks::dCreateDevice(
+	IDirect3D9* d3d9, UINT Adapter, D3DDEVTYPE DeviceType, HWND hFocusWindow,
+	DWORD BehaviorFlags, D3DPRESENT_PARAMETERS* pPresentationParameters,
+	IDirect3DDevice9** ppReturnedDevice)
+{
+	HRESULT hr = hkCreateDevice.fOriginal(d3d9, Adapter, DeviceType, hFocusWindow,
+		BehaviorFlags, pPresentationParameters, ppReturnedDevice);
+
+	std::cout << "[VR] dCreateDevice: hr=" << std::hex << hr << " p=" << (void*)*ppReturnedDevice << std::dec << "\n";
+
+	if (SUCCEEDED(hr) && *ppReturnedDevice)
+	{
+		m_Game->m_VR->m_D3D9Device = *ppReturnedDevice;
+
+		if (!m_Game->m_VR->m_D3D11Device)
+		{
+			HRESULT d3d11hr = D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr,
+				D3D11_CREATE_DEVICE_BGRA_SUPPORT, nullptr, 0, D3D11_SDK_VERSION,
+				&m_Game->m_VR->m_D3D11Device, nullptr, &m_Game->m_VR->m_D3D11Context);
+			std::cout << "[VR] D3D11CreateDevice: hr=" << std::hex << d3d11hr << std::dec << "\n";
+		}
+
+		if (!g_TextureHookSetup)
+		{
+			void** devVtable = *(void***)*ppReturnedDevice;
+			MH_CreateHook(devVtable[16], &Hooks::dCreateTexture, (LPVOID*)&Hooks::hkCreateTexture.fOriginal);
+			MH_EnableHook(devVtable[16]);
+			g_TextureHookSetup = true;
+		}
+	}
+
+	return hr;
+}
+
+HRESULT __stdcall Hooks::dCreateTexture(IDirect3DDevice9* device, UINT Width, UINT Height, UINT Levels, DWORD Usage, D3DFORMAT Format, D3DPOOL Pool, IDirect3DTexture9** ppTexture, HANDLE* pSharedHandle)
+{
+	const auto& creatingID = m_VR->m_CreatingTextureID;
+	if (creatingID == VR::Texture_None)
+		return hkCreateTexture.fOriginal(device, Width, Height, Levels, Usage, Format, Pool, ppTexture, pSharedHandle);
+
+	std::cout << "[VR] dCreateTexture: id=" << creatingID << " " << Width << "x" << Height << "\n";
+
+	m_VR->m_D3D9Device = device;
+
+	HANDLE sharedHandle = nullptr;
+	HRESULT hr = hkCreateTexture.fOriginal(device, Width, Height, Levels, Usage, Format, D3DPOOL_DEFAULT, ppTexture, &sharedHandle);
+
+	std::cout << "[VR] dCreateTexture: hr=" << std::hex << hr << " p=" << (void*)*ppTexture << " handle=" << (void*)sharedHandle << std::dec << "\n";
+
+	if (SUCCEEDED(hr) && *ppTexture)
+	{
+		auto &dst = m_VR->m_D3D9Textures[creatingID];
+		dst.texture = *ppTexture;
+		dst.sharedHandle = sharedHandle;
+
+		if (m_VR->m_D3D11Device && sharedHandle)
+		{
+			m_VR->m_D3D11Device->OpenSharedResource(sharedHandle, __uuidof(ID3D11Texture2D), (void**)&m_VR->m_D3D11Textures[creatingID]);
+		}
+	}
+
+	return hr;
 }

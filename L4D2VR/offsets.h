@@ -38,6 +38,8 @@ class Offsets
 {
 public:
     Offset GetFullScreenTexture =        { "client.dll", 0x1A83F0, "A1 ? ? ? ? 85 C0 75 53 8B 0D ? ? ? ? 8B 01 8B 90 ? ? ? ? 6A 00 6A 01 68 ? ? ? ? 68 ? ? ? ? FF D2 50 B9 ? ? ? ? E8 ? ? ? ? 80 3D ? ? ? ? ? 75 1C 8B 0D ? ? ? ? 8B 01 8B 90 ? ? ? ? 68 ? ? ? ? C6 05 ? ? ? ? ? FF D2 A1 ? ? ? ? C3" };
+    Offset ShaderDeviceConnect =           { "shaderapidx9.dll", 0x21B80, "55 8B EC 8B 45 08 56 50 8B F1 E8 ? ? ? ? 84 C0 74 1C 6A 20 E8 ? ? ? ? 89 46 30 85 C0 75 15" };
+    Offset ShaderDeviceMgrBaseConnect =    { "shaderapidx9.dll", 0x21470, "55 8B EC 8B 45 08 56 8B F1 8D 4D 08 6A 01 51 A3 ? ? ? ? C7 45 08 ? ? ? ? E8 ? ? ? ? 83 C4 08" };
     Offset RenderView =                  { "client.dll", 0x1F2120, "55 8B EC 83 EC 2C 53 56 8B F1 6A 00 8D 8E ? ? ? ? E8 ? ? ? ?" };
     Offset g_pClientMode =               { "client.dll", 0x28A600, "8B 0D ? ? ? ? 8B", 2 };
     Offset CalcViewModelView =           { "client.dll", 0x27D750, "55 8B EC 83 EC 34 53 8B D9 80 BB" };

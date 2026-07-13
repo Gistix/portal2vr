@@ -1,5 +1,6 @@
 #include "vr.h"
 #include <Windows.h>
+#include <d3d11.h>
 #include "sdk.h"
 #include "game.h"
 #include "hooks.h"
@@ -13,7 +14,6 @@
 #include <thread>
 #include <type_traits>
 #include <algorithm>
-#include <d3d9_vr.h>
 
 VR::VR(Game *game) 
 {
@@ -75,10 +75,6 @@ VR::VR(Game *game)
     std::thread configParser(&VR::WaitForConfigUpdate, this);
     configParser.detach();
 
-    while (!g_D3DVR9) 
-        Sleep(10);
-
-    g_D3DVR9->GetBackBufferData(&m_VKBackBuffer);
     m_Overlay = vr::VROverlay();
     m_Overlay->CreateOverlay("MenuOverlayKey", "MenuOverlay", &m_MainMenuHandle);
     //m_Overlay->CreateOverlay("HUDOverlayKey", "HUDOverlay", &m_HUDHandle);
@@ -185,7 +181,7 @@ void VR::Update()
 
     
 
-    if (m_IsVREnabled && g_D3DVR9)
+    if (m_IsVREnabled)
     {
         bool inGame = m_Game->m_EngineClient->IsInGame();
 
@@ -216,91 +212,118 @@ void VR::Update()
 
 void VR::CreateVRTextures()
 {
-    int windowWidth, windowHeight;
+	int windowWidth, windowHeight;
 
-    IMatRenderContext* rndrContext = m_Game->m_MaterialSystem->GetRenderContext();
-    rndrContext->GetWindowSize(windowWidth, windowHeight);
-    rndrContext->Release();
+	for (int i = 0; i < TextureID::Total; i++)
+	{
+		if (m_D3D11Textures[i])
+		{
+			m_D3D11Textures[i]->Release();
+			m_D3D11Textures[i] = nullptr;
+		}
+		m_D3D9Textures[i] = {};
+	}
 
-    std::cout << "RenderTexture - Width: " << m_RenderWidth << ", Height: " << m_RenderHeight << "\n";
+	m_OverlayTextureSet = false;
 
-    m_Game->m_MaterialSystem->isGameRunning = false;
-    m_Game->m_MaterialSystem->BeginRenderTargetAllocation();
-    m_Game->m_MaterialSystem->isGameRunning = true;
+	IMatRenderContext* rndrContext = m_Game->m_MaterialSystem->GetRenderContext();
+	rndrContext->GetWindowSize(windowWidth, windowHeight);
+	rndrContext->Release();
 
-    m_CreatingTextureID = Texture_LeftEye;
-    m_LeftEyeTexture = m_Game->m_MaterialSystem->CreateNamedRenderTargetTextureEx("leftEye0", m_RenderWidth, m_RenderHeight, RT_SIZE_NO_CHANGE, m_Game->m_MaterialSystem->GetBackBufferFormat(), MATERIAL_RT_DEPTH_SEPARATE, TEXTUREFLAGS_NOMIP);
-    
-    m_CreatingTextureID = Texture_RightEye;
-    m_RightEyeTexture = m_Game->m_MaterialSystem->CreateNamedRenderTargetTextureEx("rightEye0", m_RenderWidth, m_RenderHeight, RT_SIZE_NO_CHANGE, m_Game->m_MaterialSystem->GetBackBufferFormat(), MATERIAL_RT_DEPTH_SEPARATE, TEXTUREFLAGS_NOMIP);
+	std::cout << "RenderTexture - Width: " << m_RenderWidth << ", Height: " << m_RenderHeight << "\n";
 
-    m_CreatingTextureID = Texture_HUD;
-    m_HUDTexture = m_Game->m_MaterialSystem->CreateNamedRenderTargetTextureEx("vrHUD", m_RenderWidth, m_RenderHeight, RT_SIZE_NO_CHANGE, m_Game->m_MaterialSystem->GetBackBufferFormat(), MATERIAL_RT_DEPTH_SHARED, TEXTUREFLAGS_NOMIP);
-    
-    m_CreatingTextureID = Texture_Blank;
-    m_BlankTexture = m_Game->m_MaterialSystem->CreateNamedRenderTargetTextureEx("blankTexture", 512, 512, RT_SIZE_NO_CHANGE, m_Game->m_MaterialSystem->GetBackBufferFormat(), MATERIAL_RT_DEPTH_SHARED, TEXTUREFLAGS_NOMIP);
-    
-    m_CreatingTextureID = Texture_None;
+	m_Game->m_MaterialSystem->isGameRunning = false;
+	m_Game->m_MaterialSystem->BeginRenderTargetAllocation();
+	m_Game->m_MaterialSystem->isGameRunning = true;
 
-    m_Game->m_MaterialSystem->EndRenderTargetAllocation();
+	m_CreatingTextureID = Texture_LeftEye;
+	m_LeftEyeTexture = m_Game->m_MaterialSystem->CreateNamedRenderTargetTextureEx("leftEye0", m_RenderWidth, m_RenderHeight, RT_SIZE_NO_CHANGE, m_Game->m_MaterialSystem->GetBackBufferFormat(), MATERIAL_RT_DEPTH_SEPARATE, TEXTUREFLAGS_NOMIP);
 
-    m_CreatedVRTextures = true;
+	m_CreatingTextureID = Texture_RightEye;
+	m_RightEyeTexture = m_Game->m_MaterialSystem->CreateNamedRenderTargetTextureEx("rightEye0", m_RenderWidth, m_RenderHeight, RT_SIZE_NO_CHANGE, m_Game->m_MaterialSystem->GetBackBufferFormat(), MATERIAL_RT_DEPTH_SEPARATE, TEXTUREFLAGS_NOMIP);
+
+	m_CreatingTextureID = Texture_HUD;
+	m_HUDTexture = m_Game->m_MaterialSystem->CreateNamedRenderTargetTextureEx("vrHUD", m_RenderWidth, m_RenderHeight, RT_SIZE_NO_CHANGE, m_Game->m_MaterialSystem->GetBackBufferFormat(), MATERIAL_RT_DEPTH_SHARED, TEXTUREFLAGS_NOMIP);
+
+	m_CreatingTextureID = Texture_Blank;
+	m_BlankTexture = m_Game->m_MaterialSystem->CreateNamedRenderTargetTextureEx("blankTexture", 512, 512, RT_SIZE_NO_CHANGE, m_Game->m_MaterialSystem->GetBackBufferFormat(), MATERIAL_RT_DEPTH_SHARED, TEXTUREFLAGS_NOMIP);
+
+	m_CreatingTextureID = Texture_Overlay;
+	m_OverlayTexture = m_Game->m_MaterialSystem->CreateNamedRenderTargetTextureEx("vrOverlay", windowWidth, windowHeight, RT_SIZE_NO_CHANGE, m_Game->m_MaterialSystem->GetBackBufferFormat(), MATERIAL_RT_DEPTH_SHARED, TEXTUREFLAGS_NOMIP);
+
+	m_CreatingTextureID = Texture_None;
+
+	m_Game->m_MaterialSystem->EndRenderTargetAllocation();
+
+	m_CreatedVRTextures = true;
 }
 
 void VR::SubmitVRTextures()
 {
-    if (!m_RenderedNewFrame)
-    {
-        if (!m_BlankTexture)
-            CreateVRTextures();
+	if (!m_RenderedNewFrame)
+	{
+		if (!m_BlankTexture)
+			CreateVRTextures();
 
-        if (!vr::VROverlay()->IsOverlayVisible(m_MainMenuHandle))
-            RepositionOverlays();
+		if (!vr::VROverlay()->IsOverlayVisible(m_MainMenuHandle))
+			RepositionOverlays();
 
-        vr::VRTextureBounds_t bounds{ 0, 0, 1, 1 };
-        if (m_Game->m_EngineClient->IsInGame())
-        {
-            // menu only renders to the window portion of the texture. Until we figure out a proper fix,
-            // as a workaround only show that portion of the texture
-            int windowWidth, windowHeight;
-            IMatRenderContext* rndrContext = m_Game->m_MaterialSystem->GetRenderContext();
-            rndrContext->GetWindowSize(windowWidth, windowHeight);
-            rndrContext->Release();
+		vr::VRTextureBounds_t bounds{ 0, 0, 1, 1 };
+		if (m_Game->m_EngineClient->IsInGame())
+		{
+			int windowWidth, windowHeight;
+			IMatRenderContext* rndrContext = m_Game->m_MaterialSystem->GetRenderContext();
+			rndrContext->GetWindowSize(windowWidth, windowHeight);
+			rndrContext->Release();
 
-            bounds.uMax = (float)windowWidth / m_RenderWidth;
-            bounds.vMax = (float)windowHeight / m_RenderHeight;
-            vr::VROverlay()->SetOverlayTexelAspect(m_MainMenuHandle, bounds.vMax / bounds.uMax);
-        }
-        else
-            vr::VROverlay()->SetOverlayTexelAspect(m_MainMenuHandle, 1.0f);
+			bounds.uMax = (float)windowWidth / m_RenderWidth;
+			bounds.vMax = (float)windowHeight / m_RenderHeight;
+			vr::VROverlay()->SetOverlayTexelAspect(m_MainMenuHandle, bounds.vMax / bounds.uMax);
+		}
+		else
+			vr::VROverlay()->SetOverlayTexelAspect(m_MainMenuHandle, 1.0f);
 
-        vr::VROverlay()->SetOverlayTextureBounds(m_MainMenuHandle, &bounds);
-        vr::VROverlay()->SetOverlayTexture(m_MainMenuHandle, &m_VKBackBuffer.m_VRTexture);
-        vr::VROverlay()->ShowOverlay(m_MainMenuHandle);
-        //vr::VROverlay()->HideOverlay(m_HUDHandle);
+		vr::VROverlay()->SetOverlayTextureBounds(m_MainMenuHandle, &bounds);
+		vr::VROverlay()->ShowOverlay(m_MainMenuHandle);
 
-        //if (!m_Game->m_EngineClient->IsInGame())
-        {
-            vr::VRCompositor()->Submit(vr::Eye_Left, &m_VKBlankTexture.m_VRTexture, NULL, vr::Submit_Default);
-            vr::VRCompositor()->Submit(vr::Eye_Right, &m_VKBlankTexture.m_VRTexture, NULL, vr::Submit_Default);
-        }
+		if (!m_OverlayTextureSet && m_D3D9Device && m_D3D9Textures[Texture_Overlay].texture && m_D3D11Textures[Texture_Overlay])
+		{
+			IDirect3DSurface9 *pBackBuf = nullptr, *pOverlaySurf = nullptr;
+			if (SUCCEEDED(m_D3D9Device->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, &pBackBuf)))
+			{
+				if (SUCCEEDED(m_D3D9Textures[Texture_Overlay].texture->GetSurfaceLevel(0, &pOverlaySurf)))
+				{
+					m_D3D9Device->StretchRect(pBackBuf, NULL, pOverlaySurf, NULL, D3DTEXF_LINEAR);
+					pOverlaySurf->Release();
+				}
+				pBackBuf->Release();
+			}
 
-        return;
-    }
-    vr::VROverlay()->HideOverlay(m_MainMenuHandle);
+			vr::Texture_t overlayTex = { m_D3D11Textures[Texture_Overlay], vr::TextureType_DirectX, vr::ColorSpace_Gamma };
+			vr::VROverlay()->SetOverlayTexture(m_MainMenuHandle, &overlayTex);
+			m_OverlayTextureSet = true;
+		}
 
-    //vr::VROverlay()->SetOverlayTexture(m_HUDHandle, &m_VKHUD.m_VRTexture);
+		{
+			vr::Texture_t blank = { m_D3D11Textures[Texture_Blank], vr::TextureType_DirectX, vr::ColorSpace_Gamma };
+			vr::VRCompositor()->Submit(vr::Eye_Left, &blank, NULL, vr::Submit_Default);
+			vr::VRCompositor()->Submit(vr::Eye_Right, &blank, NULL, vr::Submit_Default);
+		}
 
-    if (m_Game->m_VguiSurface->IsCursorVisible())
-    {
-        // We're in the pause menu
-        //vr::VROverlay()->ShowOverlay(m_HUDHandle);
-    }
+		return;
+	}
+	vr::VROverlay()->HideOverlay(m_MainMenuHandle);
 
-    vr::VRCompositor()->Submit(vr::Eye_Left, &m_VKLeftEye.m_VRTexture, &(m_TextureBounds)[0], vr::Submit_Default);
-    vr::VRCompositor()->Submit(vr::Eye_Right, &m_VKRightEye.m_VRTexture, &(m_TextureBounds)[1], vr::Submit_Default);
+	if (m_Game->m_VguiSurface->IsCursorVisible())
+	{
+	}
 
-    m_RenderedNewFrame = false;
+	vr::Texture_t leftEye = { m_D3D11Textures[Texture_LeftEye], vr::TextureType_DirectX, vr::ColorSpace_Gamma };
+	vr::Texture_t rightEye = { m_D3D11Textures[Texture_RightEye], vr::TextureType_DirectX, vr::ColorSpace_Gamma };
+	vr::VRCompositor()->Submit(vr::Eye_Left, &leftEye, &(m_TextureBounds)[0], vr::Submit_Default);
+	vr::VRCompositor()->Submit(vr::Eye_Right, &rightEye, &(m_TextureBounds)[1], vr::Submit_Default);
+
+	m_RenderedNewFrame = false;
 }
 
 void VR::GetPoseData(vr::TrackedDevicePose_t &poseRaw, TrackedDevicePoseData &poseOut)
@@ -352,11 +375,8 @@ void VR::RepositionOverlays()
     vr::ETrackingUniverseOrigin trackingOrigin = vr::VRCompositor()->GetTrackingSpace();
 
     // Reposition main menu overlay
-    float renderWidth = m_VKBackBuffer.m_VulkanData.m_nWidth;
-    float renderHeight = m_VKBackBuffer.m_VulkanData.m_nHeight;
-
-    float widthRatio = windowWidth / renderWidth;
-    float heightRatio = windowHeight / renderHeight;
+    float widthRatio = (float)windowWidth / m_RenderWidth;
+    float heightRatio = (float)windowHeight / m_RenderHeight;
     menuTransform.m[0][0] *= widthRatio;
     menuTransform.m[1][1] *= heightRatio;
 

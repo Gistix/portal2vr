@@ -2,12 +2,17 @@
 #include "openvr.h"
 #include "vector.h"
 #include <chrono>
+#include <Windows.h>
 
 #define MAX_STR_LEN 256
 
 class Game;
-class IDirect3DTexture9;
-class IDirect3DSurface9;
+struct IDirect3DDevice9;
+struct IDirect3DTexture9;
+struct IDirect3DSurface9;
+struct ID3D11Device;
+struct ID3D11DeviceContext;
+struct ID3D11Texture2D;
 class ITexture;
 
 
@@ -18,12 +23,6 @@ struct TrackedDevicePoseData
 	Vector TrackedDeviceVel;
 	QAngle TrackedDeviceAng;
 	QAngle TrackedDeviceAngVel;
-};
-
-struct SharedTextureHolder 
-{
-	vr::VRVulkanTextureData_t m_VulkanData;
-	vr::Texture_t m_VRTexture;
 };
 
 class VR
@@ -113,30 +112,35 @@ public:
 		Texture_LeftEye,
 		Texture_RightEye,
 		Texture_HUD,
-		Texture_Blank
+		Texture_Overlay,
+		Texture_Blank,
+		Total
 	};
 
 	ITexture *m_LeftEyeTexture;
 	ITexture *m_RightEyeTexture;
 	ITexture *m_HUDTexture;
+	ITexture *m_OverlayTexture = nullptr;
 	ITexture *m_BlankTexture = nullptr;
 
-	IDirect3DSurface9 *m_D9LeftEyeSurface;
-	IDirect3DSurface9 *m_D9RightEyeSurface;
-	IDirect3DSurface9 *m_D9HUDSurface;
-	IDirect3DSurface9 *m_D9BlankSurface;
+	struct SharedD3D9Texture
+	{
+		IDirect3DTexture9 *texture = nullptr;
+		HANDLE sharedHandle = nullptr;
+	};
 
-	SharedTextureHolder m_VKLeftEye;
-	SharedTextureHolder m_VKRightEye;
-	SharedTextureHolder m_VKBackBuffer;
-	SharedTextureHolder m_VKHUD;
-	SharedTextureHolder m_VKBlankTexture;
+	IDirect3DDevice9 *m_D3D9Device = nullptr;
+	ID3D11Device *m_D3D11Device = nullptr;
+	ID3D11DeviceContext *m_D3D11Context = nullptr;
+	SharedD3D9Texture m_D3D9Textures[TextureID::Total];
+	ID3D11Texture2D *m_D3D11Textures[TextureID::Total] = {};
 
 	bool m_IsVREnabled = false;
 	bool m_IsInitialized = false;
 	bool m_RenderedNewFrame = false;
 	bool m_RenderedHud = false;
 	bool m_CreatedVRTextures = false;
+	bool m_OverlayTextureSet = false;
 	bool m_DrawCrosshair = false;
 	TextureID m_CreatingTextureID = Texture_None;
 
