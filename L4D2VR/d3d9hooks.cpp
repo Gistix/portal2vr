@@ -65,8 +65,14 @@ HRESULT __stdcall D3D9Hooks::dCreateDevice(
 		{
 			MH_CreateHook(devVtable[23], &D3D9Hooks::dCreateTexture, (LPVOID*)&D3D9Hooks::hkCreateTexture.fOriginal);
 			MH_EnableHook(devVtable[23]);
+			MH_CreateHook(devVtable[24], &D3D9Hooks::dCreateVolumeTexture, (LPVOID*)&D3D9Hooks::hkCreateVolumeTexture.fOriginal);
+			MH_EnableHook(devVtable[24]);
+			MH_CreateHook(devVtable[25], &D3D9Hooks::dCreateCubeTexture, (LPVOID*)&D3D9Hooks::hkCreateCubeTexture.fOriginal);
+			MH_EnableHook(devVtable[25]);
 			g_TextureHookSetup = true;
 			std::cout << "[VR] dCreateDevice: CreateTexture hook installed (vtable[23])\n";
+			std::cout << "[VR] dCreateDevice: CreateVolumeTexture hook installed (vtable[24])\n";
+			std::cout << "[VR] dCreateDevice: CreateCubeTexture hook installed (vtable[25])\n";
 		}
 
 		if (!g_BufferHookSetup)
@@ -92,14 +98,26 @@ HRESULT __stdcall D3D9Hooks::dCreateDevice(
 	return hr;
 }
 
+static D3DPOOL OverridePool(D3DPOOL Pool, const char* name)
+{
+	if (Pool == D3DPOOL_MANAGED)
+	{
+		std::cout << "[VR] " << name << ": overriding pool MANAGED -> DEFAULT\n";
+		return D3DPOOL_DEFAULT;
+	}
+	return Pool;
+}
+
 HRESULT __stdcall D3D9Hooks::dCreateTexture(IDirect3DDevice9* device, UINT Width, UINT Height, UINT Levels, DWORD Usage, D3DFORMAT Format, D3DPOOL Pool, IDirect3DTexture9** ppTexture, HANDLE* pSharedHandle)
 {
+	D3DPOOL effectivePool = OverridePool(Pool, "dCreateTexture");
+
 	if (!m_VR)
-		return hkCreateTexture.fOriginal(device, Width, Height, Levels, Usage, Format, Pool, ppTexture, pSharedHandle);
+		return hkCreateTexture.fOriginal(device, Width, Height, Levels, Usage, Format, effectivePool, ppTexture, pSharedHandle);
 
 	const auto& creatingID = m_VR->m_CreatingTextureID;
 	if (creatingID == VR::Texture_None)
-		return hkCreateTexture.fOriginal(device, Width, Height, Levels, Usage, Format, Pool, ppTexture, pSharedHandle);
+		return hkCreateTexture.fOriginal(device, Width, Height, Levels, Usage, Format, effectivePool, ppTexture, pSharedHandle);
 
 	std::cout << "[VR] dCreateTexture: id=" << creatingID << " " << Width << "x" << Height
 		<< " Levels=" << Levels << " Pool=" << Pool << " Usage=" << std::hex << Usage << std::dec << "\n";
@@ -127,6 +145,18 @@ HRESULT __stdcall D3D9Hooks::dCreateTexture(IDirect3DDevice9* device, UINT Width
 	}
 
 	return hr;
+}
+
+HRESULT __stdcall D3D9Hooks::dCreateVolumeTexture(IDirect3DDevice9* device, UINT Width, UINT Height, UINT Depth, UINT Levels, DWORD Usage, D3DFORMAT Format, D3DPOOL Pool, IDirect3DVolumeTexture9** ppVolumeTexture, HANDLE* pSharedHandle)
+{
+	D3DPOOL effectivePool = OverridePool(Pool, "dCreateVolumeTexture");
+	return hkCreateVolumeTexture.fOriginal(device, Width, Height, Depth, Levels, Usage, Format, effectivePool, ppVolumeTexture, pSharedHandle);
+}
+
+HRESULT __stdcall D3D9Hooks::dCreateCubeTexture(IDirect3DDevice9* device, UINT EdgeLength, UINT Levels, DWORD Usage, D3DFORMAT Format, D3DPOOL Pool, IDirect3DCubeTexture9** ppCubeTexture, HANDLE* pSharedHandle)
+{
+	D3DPOOL effectivePool = OverridePool(Pool, "dCreateCubeTexture");
+	return hkCreateCubeTexture.fOriginal(device, EdgeLength, Levels, Usage, Format, effectivePool, ppCubeTexture, pSharedHandle);
 }
 
 HRESULT __stdcall D3D9Hooks::dCreateVertexBuffer(IDirect3DDevice9* device, UINT Length, DWORD Usage, DWORD FVF, D3DPOOL Pool, IDirect3DVertexBuffer9** ppVertexBuffer, HANDLE* pSharedHandle)
