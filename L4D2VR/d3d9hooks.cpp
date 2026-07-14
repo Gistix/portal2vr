@@ -103,11 +103,9 @@ static void OverrideTextureParams(DWORD& Usage, D3DPOOL& Pool, const char* name)
 {
 	if (Pool == D3DPOOL_MANAGED)
 	{
-		std::cout << "[VR] " << name << ": overriding pool MANAGED -> DEFAULT\n";
 		Pool = D3DPOOL_DEFAULT;
 
 		if (Usage == 0) {
-			std::cout << "[VR] " << name << ": overriding usage None -> D3DUSAGE_DYNAMIC\n";
 			Usage = D3DUSAGE_DYNAMIC;
 		}
 	}
@@ -125,7 +123,7 @@ HRESULT __stdcall D3D9Hooks::dCreateTexture(IDirect3DDevice9* device, UINT Width
 		return hkCreateTexture.fOriginal(device, Width, Height, Levels, Usage, Format, Pool, ppTexture, pSharedHandle);
 
 	std::cout << "[VR] dCreateTexture: id=" << creatingID << " " << Width << "x" << Height
-		<< " Levels=" << Levels << " Pool=" << Pool << " Usage=" << std::hex << Usage << std::dec << "\n";
+		<< " Levels=" << Levels << " Format=" << Format << " Pool=" << Pool << " Usage=" << std::hex << Usage << std::dec << "\n";
 
 	HANDLE sharedHandle = nullptr;
 	HRESULT hr = hkCreateTexture.fOriginal(device, Width, Height, Levels, Usage, Format, Pool, ppTexture, &sharedHandle);
@@ -166,19 +164,11 @@ HRESULT __stdcall D3D9Hooks::dCreateCubeTexture(IDirect3DDevice9* device, UINT E
 
 HRESULT __stdcall D3D9Hooks::dCreateVertexBuffer(IDirect3DDevice9* device, UINT Length, DWORD Usage, DWORD FVF, D3DPOOL Pool, IDirect3DVertexBuffer9** ppVertexBuffer, HANDLE* pSharedHandle)
 {
-	if (Pool != D3DPOOL_DEFAULT)
-	{
-		std::cout << "[VR] dCreateVertexBuffer: overriding pool " << Pool << " -> D3DPOOL_DEFAULT\n";
-	}
 	return hkCreateVertexBuffer.fOriginal(device, Length, Usage, FVF, D3DPOOL_DEFAULT, ppVertexBuffer, pSharedHandle);
 }
 
 HRESULT __stdcall D3D9Hooks::dCreateIndexBuffer(IDirect3DDevice9* device, UINT Length, DWORD Usage, D3DFORMAT Format, D3DPOOL Pool, IDirect3DIndexBuffer9** ppIndexBuffer, HANDLE* pSharedHandle)
 {
-	if (Pool != D3DPOOL_DEFAULT)
-	{
-		std::cout << "[VR] dCreateIndexBuffer: overriding pool " << Pool << " -> D3DPOOL_DEFAULT\n";
-	}
 	return hkCreateIndexBuffer.fOriginal(device, Length, Usage, Format, D3DPOOL_DEFAULT, ppIndexBuffer, pSharedHandle);
 }
 

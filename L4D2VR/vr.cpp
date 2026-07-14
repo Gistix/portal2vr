@@ -77,11 +77,11 @@ VR::VR(Game *game)
     configParser.detach();
 
     m_Overlay = vr::VROverlay();
-    m_Overlay->CreateOverlay("MenuOverlayKey", "MenuOverlay", &m_MainMenuHandle);
+    CheckOverlayError(m_Overlay->CreateOverlay("MenuOverlayKey", "MenuOverlay", &m_MainMenuHandle), "CreateOverlay");
     //m_Overlay->CreateOverlay("HUDOverlayKey", "HUDOverlay", &m_HUDHandle);
-    m_Overlay->SetOverlayInputMethod(m_MainMenuHandle, vr::VROverlayInputMethod_Mouse);
+    CheckOverlayError(m_Overlay->SetOverlayInputMethod(m_MainMenuHandle, vr::VROverlayInputMethod_Mouse), "SetOverlayInputMethod");
    // m_Overlay->SetOverlayInputMethod(m_HUDHandle, vr::VROverlayInputMethod_Mouse);
-    m_Overlay->SetOverlayFlag(m_MainMenuHandle, vr::VROverlayFlags_SendVRDiscreteScrollEvents, true);
+    CheckOverlayError(m_Overlay->SetOverlayFlag(m_MainMenuHandle, vr::VROverlayFlags_SendVRDiscreteScrollEvents, true), "SetOverlayFlag(scroll)");
     //m_Overlay->SetOverlayFlag(m_HUDHandle, vr::VROverlayFlags_SendVRDiscreteScrollEvents, true);
 
     int windowWidth, windowHeight;
@@ -91,8 +91,8 @@ VR::VR(Game *game)
     //m_Overlay->SetOverlayMouseScale(m_HUDHandle, &mouseScaleHUD);
 
     const vr::HmdVector2_t mouseScaleMenu = {m_RenderWidth, m_RenderHeight};
-    m_Overlay->SetOverlayCurvature(m_MainMenuHandle, 0.15f);
-    m_Overlay->SetOverlayMouseScale(m_MainMenuHandle, &mouseScaleMenu);
+    CheckOverlayError(m_Overlay->SetOverlayCurvature(m_MainMenuHandle, 0.15f), "SetOverlayCurvature");
+    CheckOverlayError(m_Overlay->SetOverlayMouseScale(m_MainMenuHandle, &mouseScaleMenu), "SetOverlayMouseScale");
 
     UpdatePosesAndActions();
 
@@ -179,8 +179,6 @@ void VR::Update()
 {
     if (!m_IsInitialized || !m_Game->m_Initialized)
         return;
-
-    
 
     if (m_IsVREnabled)
     {
@@ -279,31 +277,50 @@ void VR::SubmitVRTextures()
 
 			bounds.uMax = (float)windowWidth / m_RenderWidth;
 			bounds.vMax = (float)windowHeight / m_RenderHeight;
-			vr::VROverlay()->SetOverlayTexelAspect(m_MainMenuHandle, bounds.vMax / bounds.uMax);
+			CheckOverlayError(vr::VROverlay()->SetOverlayTexelAspect(m_MainMenuHandle, bounds.vMax / bounds.uMax), "SetOverlayTexelAspect");
 		}
 		else
-			vr::VROverlay()->SetOverlayTexelAspect(m_MainMenuHandle, 1.0f);
+			CheckOverlayError(vr::VROverlay()->SetOverlayTexelAspect(m_MainMenuHandle, 1.0f), "SetOverlayTexelAspect");
 
-		vr::VROverlay()->SetOverlayTextureBounds(m_MainMenuHandle, &bounds);
-		vr::VROverlay()->ShowOverlay(m_MainMenuHandle);
+		CheckOverlayError(vr::VROverlay()->SetOverlayTextureBounds(m_MainMenuHandle, &bounds), "SetOverlayTextureBounds");
+		CheckOverlayError(vr::VROverlay()->ShowOverlay(m_MainMenuHandle), "ShowOverlay");
 
-		if (!m_OverlayTextureSet && m_Game->m_D3D9Device && m_D3D9Textures[Texture_Overlay].texture && m_D3D11Textures[Texture_Overlay])
+		if (!m_OverlayTextureSet && m_Game->m_D3D9Device)
 		{
-			IDirect3DSurface9 *pBackBuf = nullptr, *pOverlaySurf = nullptr;
-			if (SUCCEEDED(m_Game->m_D3D9Device->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, &pBackBuf)))
-			{
-				if (SUCCEEDED(m_D3D9Textures[Texture_Overlay].texture->GetSurfaceLevel(0, &pOverlaySurf)))
-				{
-					m_Game->m_D3D9Device->StretchRect(pBackBuf, NULL, pOverlaySurf, NULL, D3DTEXF_LINEAR);
-					pOverlaySurf->Release();
-				}
-				pBackBuf->Release();
-			}
+            vr::Texture_t overlayTex = { m_D3D11Textures[Texture_Overlay], vr::TextureType_DirectX, vr::ColorSpace_Gamma };
 
-			vr::Texture_t overlayTex = { m_D3D11Textures[Texture_Overlay], vr::TextureType_DirectX, vr::ColorSpace_Gamma };
-			vr::VROverlay()->SetOverlayTexture(m_MainMenuHandle, &overlayTex);
+            D3D11_TEXTURE2D_DESC desc;
+            m_D3D11Textures[Texture_Overlay]->GetDesc(&desc);
+
+            std::cout << "[VR] Texture_Overlay: " << desc.Width << "x" << desc.Height
+                << " Format=" << desc.Format << "\n";
+
+			CheckOverlayError(vr::VROverlay()->SetOverlayTexture(m_MainMenuHandle, &overlayTex), "SetOverlayTexture");
 			m_OverlayTextureSet = true;
 		}
+
+        /*IDirect3DSurface9* pBackBuf = nullptr, * pOverlaySurf = nullptr;
+        if (SUCCEEDED(m_Game->m_D3D9Device->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, &pBackBuf)))
+        {
+            D3DSURFACE_DESC desc;
+            pBackBuf->GetDesc(&desc);
+
+            if (SUCCEEDED(m_D3D9Textures[Texture_Overlay].texture->GetSurfaceLevel(0, &pOverlaySurf)))
+            {
+                auto hr = m_Game->m_D3D9Device->StretchRect(pBackBuf, NULL, pOverlaySurf, NULL, D3DTEXF_LINEAR);
+                m_Game->m_D3D9Device->ColorFill(pOverlaySurf, nullptr, D3DCOLOR_XRGB(255, 0, 0));
+                pOverlaySurf->Release();
+            }
+
+            pBackBuf->Release();
+        }*/
+
+        IDirect3DSurface9* pOverlaySurf = nullptr;
+        if (SUCCEEDED(m_D3D9Textures[Texture_Overlay].texture->GetSurfaceLevel(0, &pOverlaySurf)))
+        {
+            m_Game->m_D3D9Device->ColorFill(pOverlaySurf, nullptr, D3DCOLOR_XRGB(255, 0, 0));
+            pOverlaySurf->Release();
+        }
 
 		{
 			vr::Texture_t blank = { m_D3D11Textures[Texture_Blank], vr::TextureType_DirectX, vr::ColorSpace_Gamma };
@@ -313,7 +330,8 @@ void VR::SubmitVRTextures()
 
 		return;
 	}
-	vr::VROverlay()->HideOverlay(m_MainMenuHandle);
+
+	CheckOverlayError(vr::VROverlay()->HideOverlay(m_MainMenuHandle), "HideOverlay");
 
 	if (m_Game->m_VguiSurface->IsCursorVisible())
 	{
@@ -399,8 +417,8 @@ void VR::RepositionOverlays()
     menuTransform.m[2][0] = -sin(hmdRotationDegrees) * xScale;
     menuTransform.m[2][2] *= cos(hmdRotationDegrees);
 
-    vr::VROverlay()->SetOverlayTransformAbsolute(m_MainMenuHandle, trackingOrigin, &menuTransform);
-    vr::VROverlay()->SetOverlayWidthInMeters(m_MainMenuHandle, 1.5 * (1.0 / heightRatio));
+    CheckOverlayError(vr::VROverlay()->SetOverlayTransformAbsolute(m_MainMenuHandle, trackingOrigin, &menuTransform), "SetOverlayTransformAbsolute");
+    CheckOverlayError(vr::VROverlay()->SetOverlayWidthInMeters(m_MainMenuHandle, 1.5 * (1.0 / heightRatio)), "SetOverlayWidthInMeters");
 
     // Reposition HUD overlay
     /*vr::HmdMatrix34_t hudTransform =
@@ -502,7 +520,7 @@ void VR::ProcessMenuInput()
     // only activate laser if a controller is pointing at the overlay
     if (isHoveringOverlay)
     {
-        vr::VROverlay()->SetOverlayFlag(currentOverlay, vr::VROverlayFlags_MakeOverlaysInteractiveIfVisible, true);
+        CheckOverlayError(vr::VROverlay()->SetOverlayFlag(currentOverlay, vr::VROverlayFlags_MakeOverlaysInteractiveIfVisible, true), "SetOverlayFlag(interactive=true)");
 
         int windowWidth, windowHeight;
         m_Game->m_MaterialSystem->GetRenderContext()->GetWindowSize(windowWidth, windowHeight);
@@ -564,7 +582,7 @@ void VR::ProcessMenuInput()
     }
     else
     {
-        vr::VROverlay()->SetOverlayFlag(currentOverlay, vr::VROverlayFlags_MakeOverlaysInteractiveIfVisible, false);
+        CheckOverlayError(vr::VROverlay()->SetOverlayFlag(currentOverlay, vr::VROverlayFlags_MakeOverlaysInteractiveIfVisible, false), "SetOverlayFlag(interactive=false)");
         
         if (PressedDigitalAction(m_MenuSelect, true))
         {

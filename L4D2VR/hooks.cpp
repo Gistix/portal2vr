@@ -9,11 +9,6 @@
 
 Hooks::Hooks(Game *game)
 {
-	if (MH_Initialize() != MH_OK)
-	{
-		Game::errorMsg("Failed to init MinHook");
-	}
-
 	m_Game = game;
 	m_VR = m_Game->m_VR;
 

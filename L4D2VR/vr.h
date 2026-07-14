@@ -3,6 +3,7 @@
 #include "vector.h"
 #include <chrono>
 #include <Windows.h>
+#include <iostream>
 
 #define MAX_STR_LEN 256
 
@@ -205,6 +206,11 @@ public:
 	void CreateVRTextures();
 	void SubmitVRTextures();
 	void RepositionOverlays();
+	static inline void CheckOverlayError(vr::EVROverlayError err, const char* call)
+	{
+		if (err != vr::VROverlayError_None)
+			std::cout << "[VR] overlay error: " << call << " -> " << (int)err << "\n";
+	}
 	void GetPoses();
 	void UpdatePosesAndActions();
 	void GetViewParameters();
