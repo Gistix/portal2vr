@@ -97,6 +97,8 @@ VR::VR(Game *game)
     m_Overlay->SetOverlayCurvature(m_MainMenuHandle, 0.15f);
     m_Overlay->SetOverlayMouseScale(m_MainMenuHandle, &mouseScaleMenu);
 
+    vr::VRCompositor()->SetTrackingSpace(vr::TrackingUniverseStanding);
+
     UpdatePosesAndActions();
 
     m_IsInitialized = true;
@@ -935,6 +937,7 @@ void VR::UpdateHMDAngles() {
 void VR::ResetPosition()
 {
     m_Center = m_HmdPose.TrackedDevicePos;
+    m_Center.z = 0;
 }
 
 void VR::UpdateTracking()
@@ -960,6 +963,9 @@ void VR::UpdateTracking()
     UpdateHMDAngles();
 
     m_HmdPosRelative = hmdPosCorrected * m_VRScale;
+    // 64 is the eye view height from the player's base position
+    // we subtract this here so that we place the HMD height at the actual player height if 6DOF is enabled
+    m_HmdPosRelative.z -= 64;
 
     // Roomscale setup
     /*Vector cameraMovingDirection = m_Center - m_SetupOriginPrev;

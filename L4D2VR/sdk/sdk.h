@@ -1261,7 +1261,7 @@ public:
 	virtual void *sub_10019E10() = 0;
 	virtual void *sub_1001A090() = 0;
 	virtual void *sub_10019870() = 0;
-	virtual void *GetViewOffset() = 0;
+	virtual const Vector& GetViewOffset() = 0;
 	virtual void *SetViewOffset() = 0;
 	virtual void *GetGroundVelocityToApply() = 0;
 	virtual void *ShouldInterpolate() = 0;
