@@ -20,15 +20,23 @@ DWORD WINAPI InitL4D2VR(HMODULE hModule)
     int nArgs;
     szArglist = CommandLineToArgvW(GetCommandLineW(), &nArgs);
     bool insecureEnabled = false;
+    bool insecureIgnored = false;
     for (int i = 0; i < nArgs; ++i)
     {
         if (wcscmp(szArglist[i], L"-insecure") == 0)
             insecureEnabled = true;
     }
+    for (int i = 0; i < nArgs; ++i)
+    {
+        if (wcscmp(szArglist[i], L"-secure_ignore") == 0)
+            insecureIgnored = true;
+    }
     LocalFree(szArglist);
 
-    if (!insecureEnabled)
-        ExitProcess(0);
+    if (!insecureEnabled && !insecureIgnored)
+        // If not, show a warning to the user
+        MessageBox(NULL, "-insecure flag not set, this is not recommended.\nAdd -secure_ignore flag to hide warning", "Warning: Running in secure mode!", MB_ICONWARNING | MB_OK);
+    //ExitProcess(0);
 
     g_Game = new Game();
 
