@@ -82,14 +82,12 @@ VR::VR(Game *game)
     CheckOverlayError(m_Overlay->SetOverlayFlag(m_MainMenuHandle, vr::VROverlayFlags_SendVRDiscreteScrollEvents, true), "SetOverlayFlag(scroll)");
     //m_Overlay->SetOverlayFlag(m_HUDHandle, vr::VROverlayFlags_SendVRDiscreteScrollEvents, true);
 
+    CheckOverlayError(m_Overlay->SetOverlayCurvature(m_MainMenuHandle, 0.15f), "SetOverlayCurvature");
+
     int windowWidth, windowHeight;
     m_Game->m_MaterialSystem->GetRenderContext()->GetWindowSize(windowWidth, windowHeight);
 
-    //const vr::HmdVector2_t mouseScaleHUD = {windowWidth, windowHeight};
-    //m_Overlay->SetOverlayMouseScale(m_HUDHandle, &mouseScaleHUD);
-
-    const vr::HmdVector2_t mouseScaleMenu = {m_RenderWidth, m_RenderHeight};
-    CheckOverlayError(m_Overlay->SetOverlayCurvature(m_MainMenuHandle, 0.15f), "SetOverlayCurvature");
+    const vr::HmdVector2_t mouseScaleMenu = { windowWidth, windowHeight };
     CheckOverlayError(m_Overlay->SetOverlayMouseScale(m_MainMenuHandle, &mouseScaleMenu), "SetOverlayMouseScale");
 
     UpdatePosesAndActions();
@@ -304,7 +302,7 @@ void VR::SubmitVRTextures()
 		if (!m_CreatedVRTextures)
 			CreateVRTextures();
 
-		if (!vr::VROverlay()->IsOverlayVisible(m_MainMenuHandle))
+		if (!vr::VROverlay()->IsOverlayVisible(m_MainMenuHandle) || !m_OverlayTextureSet)
 			RepositionOverlays();
 
         // Copy back buffer to the overlay texture
@@ -326,24 +324,6 @@ void VR::SubmitVRTextures()
         // Set OpenVR overlay texture from the D3D9 -> D3D11 DXGI handle
 		if (!m_OverlayTextureSet && m_Game->m_D3D9Device)
 		{
-            int windowWidth, windowHeight;
-            IMatRenderContext* rndrContext = m_Game->m_MaterialSystem->GetRenderContext();
-            rndrContext->GetWindowSize(windowWidth, windowHeight);
-            rndrContext->Release();
-
-            std::cout << "[VR] WindowSize: Width=" << windowWidth << " Height=" << windowHeight << std::dec << "\n";
-
-            vr::VRTextureBounds_t bounds{
-                0,
-                0,
-                (float)windowWidth / m_RenderWidth,
-                (float)windowHeight / m_RenderHeight
-            };
-
-            CheckOverlayError(vr::VROverlay()->SetOverlayTexelAspect(m_MainMenuHandle, bounds.vMax / bounds.uMax), "SetOverlayTexelAspect");
-
-            CheckOverlayError(vr::VROverlay()->SetOverlayTextureBounds(m_MainMenuHandle, &bounds), "SetOverlayTextureBounds");
-
             HANDLE sharedHandle = nullptr;
             IDXGIResource* pDXGIResource = nullptr;
             if (SUCCEEDED(m_D3D11Textures[Texture_Overlay]->QueryInterface(__uuidof(IDXGIResource), (void**)&pDXGIResource)))
@@ -432,11 +412,6 @@ void VR::RepositionOverlays()
     vr::ETrackingUniverseOrigin trackingOrigin = vr::VRCompositor()->GetTrackingSpace();
 
     // Reposition main menu overlay
-    float widthRatio = (float)windowWidth / m_RenderWidth;
-    float heightRatio = (float)windowHeight / m_RenderHeight;
-    menuTransform.m[0][0] *= widthRatio;
-    menuTransform.m[1][1] *= heightRatio;
-
     hmdForward[1] = 0;
     VectorNormalize(hmdForward);
 
@@ -456,7 +431,7 @@ void VR::RepositionOverlays()
     menuTransform.m[2][2] *= cos(hmdRotationDegrees);
 
     CheckOverlayError(vr::VROverlay()->SetOverlayTransformAbsolute(m_MainMenuHandle, trackingOrigin, &menuTransform), "SetOverlayTransformAbsolute");
-    CheckOverlayError(vr::VROverlay()->SetOverlayWidthInMeters(m_MainMenuHandle, 1.5 * (1.0 / heightRatio)), "SetOverlayWidthInMeters");
+    CheckOverlayError(vr::VROverlay()->SetOverlayWidthInMeters(m_MainMenuHandle, 3.0f), "SetOverlayWidthInMeters");
 
     // Reposition HUD overlay
     /*vr::HmdMatrix34_t hudTransform =
@@ -572,18 +547,7 @@ void VR::ProcessMenuInput()
             case vr::VREvent_MouseMove:
             {
                 float laserX = vrEvent.data.mouse.x;
-                float laserY = vrEvent.data.mouse.y;
-
-                if (m_Game->m_EngineClient->IsInGame())
-                {
-                    laserY -= (m_RenderHeight - windowHeight);
-                    laserY = windowHeight - laserY;
-                }
-                else // main menu (uses render sized texture)
-                {
-                    laserX = (laserX / m_RenderWidth) * windowWidth;
-                    laserY = ((-laserY + m_RenderHeight) / m_RenderHeight) * windowHeight;
-                }
+                float laserY = windowHeight - vrEvent.data.mouse.y;
 
                 m_Game->m_VguiInput->SetCursorPos(laserX, laserY);
                 break;
