@@ -1,7 +1,5 @@
 #include "vr.h"
 #include <Windows.h>
-#include <d3d9.h>
-#include <d3d11.h>
 #include "sdk.h"
 #include "game.h"
 #include "hooks.h"
@@ -189,12 +187,12 @@ void VR::Update()
         // Prevents crashing at menu
         if (!inGame)
         {
-            IMatRenderContext *rndrContext = m_Game->m_MaterialSystem->GetRenderContext();
+            /*IMatRenderContext *rndrContext = m_Game->m_MaterialSystem->GetRenderContext();
             rndrContext->SetRenderTarget(NULL);
-            rndrContext->Release();
+            rndrContext->Release();*/
 
             m_Game->m_CachedArmsModel = false;
-            m_CreatedVRTextures = false; // Have to recreate textures otherwise some workshop maps won't render
+            //m_CreatedVRTextures = false; // Have to recreate textures otherwise some workshop maps won't render
         } 
     }
 
@@ -207,6 +205,45 @@ void VR::Update()
     } else {
         ProcessInput();
     }
+}
+
+static D3D11_RENDER_TARGET_VIEW_DESC CreateRTVDesc(const D3D11_TEXTURE2D_DESC& texDesc)
+{
+    D3D11_RENDER_TARGET_VIEW_DESC rtvDesc = {};
+    rtvDesc.Format = texDesc.Format;
+
+    if (texDesc.SampleDesc.Count > 1)
+    {
+        // Multisampled texture
+        if (texDesc.ArraySize > 1)
+        {
+            rtvDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2DMSARRAY;
+            rtvDesc.Texture2DMSArray.FirstArraySlice = 0;
+            rtvDesc.Texture2DMSArray.ArraySize = texDesc.ArraySize;
+        }
+        else
+        {
+            rtvDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2DMS;
+        }
+    }
+    else
+    {
+        // Non-multisampled texture
+        if (texDesc.ArraySize > 1)
+        {
+            rtvDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2DARRAY;
+            rtvDesc.Texture2DArray.MipSlice = 0;
+            rtvDesc.Texture2DArray.FirstArraySlice = 0;
+            rtvDesc.Texture2DArray.ArraySize = texDesc.ArraySize;
+        }
+        else
+        {
+            rtvDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
+            rtvDesc.Texture2D.MipSlice = 0;
+        }
+    }
+
+    return rtvDesc;
 }
 
 void VR::CreateVRTextures()
@@ -235,22 +272,25 @@ void VR::CreateVRTextures()
 	m_Game->m_MaterialSystem->BeginRenderTargetAllocation();
 	m_Game->m_MaterialSystem->isGameRunning = true;
 
-	m_CreatingTextureID = Texture_LeftEye;
-	m_LeftEyeTexture = m_Game->m_MaterialSystem->CreateNamedRenderTargetTextureEx("leftEye0", m_RenderWidth, m_RenderHeight, RT_SIZE_NO_CHANGE, m_Game->m_MaterialSystem->GetBackBufferFormat(), MATERIAL_RT_DEPTH_SEPARATE, TEXTUREFLAGS_NOMIP);
+    // Setup Source Engine textures
+    {
+        m_CreatingTextureID = Texture_LeftEye;
+        m_Textures[m_CreatingTextureID] = m_Game->m_MaterialSystem->CreateNamedRenderTargetTextureEx("leftEye0", m_RenderWidth, m_RenderHeight, RT_SIZE_NO_CHANGE, m_Game->m_MaterialSystem->GetBackBufferFormat(), MATERIAL_RT_DEPTH_SEPARATE, TEXTUREFLAGS_NOMIP);
 
-	m_CreatingTextureID = Texture_RightEye;
-	m_RightEyeTexture = m_Game->m_MaterialSystem->CreateNamedRenderTargetTextureEx("rightEye0", m_RenderWidth, m_RenderHeight, RT_SIZE_NO_CHANGE, m_Game->m_MaterialSystem->GetBackBufferFormat(), MATERIAL_RT_DEPTH_SEPARATE, TEXTUREFLAGS_NOMIP);
+        m_CreatingTextureID = Texture_RightEye;
+        m_Textures[m_CreatingTextureID] = m_Game->m_MaterialSystem->CreateNamedRenderTargetTextureEx("rightEye0", m_RenderWidth, m_RenderHeight, RT_SIZE_NO_CHANGE, m_Game->m_MaterialSystem->GetBackBufferFormat(), MATERIAL_RT_DEPTH_SEPARATE, TEXTUREFLAGS_NOMIP);
 
-	m_CreatingTextureID = Texture_HUD;
-	m_HUDTexture = m_Game->m_MaterialSystem->CreateNamedRenderTargetTextureEx("vrHUD", m_RenderWidth, m_RenderHeight, RT_SIZE_NO_CHANGE, m_Game->m_MaterialSystem->GetBackBufferFormat(), MATERIAL_RT_DEPTH_SHARED, TEXTUREFLAGS_NOMIP);
+        m_CreatingTextureID = Texture_HUD;
+        m_Textures[m_CreatingTextureID] = m_Game->m_MaterialSystem->CreateNamedRenderTargetTextureEx("vrHUD", m_RenderWidth, m_RenderHeight, RT_SIZE_NO_CHANGE, m_Game->m_MaterialSystem->GetBackBufferFormat(), MATERIAL_RT_DEPTH_SHARED, TEXTUREFLAGS_NOMIP);
 
-	m_CreatingTextureID = Texture_Blank;
-	m_BlankTexture = m_Game->m_MaterialSystem->CreateNamedRenderTargetTextureEx("blankTexture", 512, 512, RT_SIZE_NO_CHANGE, m_Game->m_MaterialSystem->GetBackBufferFormat(), MATERIAL_RT_DEPTH_SHARED, TEXTUREFLAGS_NOMIP);
+        m_CreatingTextureID = Texture_Blank;
+        m_Textures[m_CreatingTextureID] = m_Game->m_MaterialSystem->CreateNamedRenderTargetTextureEx("blankTexture", 512, 512, RT_SIZE_NO_CHANGE, m_Game->m_MaterialSystem->GetBackBufferFormat(), MATERIAL_RT_DEPTH_SHARED, TEXTUREFLAGS_NOMIP);
 
-	m_CreatingTextureID = Texture_Overlay;
-	m_OverlayTexture = m_Game->m_MaterialSystem->CreateNamedRenderTargetTextureEx("vrOverlay", windowWidth, windowHeight, RT_SIZE_NO_CHANGE, m_Game->m_MaterialSystem->GetBackBufferFormat(), MATERIAL_RT_DEPTH_SHARED, TEXTUREFLAGS_NOMIP);
+        m_CreatingTextureID = Texture_Overlay;
+        m_Textures[m_CreatingTextureID] = m_Game->m_MaterialSystem->CreateNamedRenderTargetTextureEx("vrOverlay", windowWidth, windowHeight, RT_SIZE_NO_CHANGE, m_Game->m_MaterialSystem->GetBackBufferFormat(), MATERIAL_RT_DEPTH_SHARED, TEXTUREFLAGS_NOMIP);
 
-	m_CreatingTextureID = Texture_None;
+        m_CreatingTextureID = Texture_None;
+    }
 
 	m_Game->m_MaterialSystem->EndRenderTargetAllocation();
 
@@ -261,45 +301,14 @@ void VR::SubmitVRTextures()
 {
 	if (!m_RenderedNewFrame)
 	{
-		if (!m_BlankTexture)
+		if (!m_CreatedVRTextures)
 			CreateVRTextures();
 
 		if (!vr::VROverlay()->IsOverlayVisible(m_MainMenuHandle))
 			RepositionOverlays();
 
-		vr::VRTextureBounds_t bounds{ 0, 0, 1, 1 };
-		if (m_Game->m_EngineClient->IsInGame())
-		{
-			int windowWidth, windowHeight;
-			IMatRenderContext* rndrContext = m_Game->m_MaterialSystem->GetRenderContext();
-			rndrContext->GetWindowSize(windowWidth, windowHeight);
-			rndrContext->Release();
-
-			bounds.uMax = (float)windowWidth / m_RenderWidth;
-			bounds.vMax = (float)windowHeight / m_RenderHeight;
-			CheckOverlayError(vr::VROverlay()->SetOverlayTexelAspect(m_MainMenuHandle, bounds.vMax / bounds.uMax), "SetOverlayTexelAspect");
-		}
-		else
-			CheckOverlayError(vr::VROverlay()->SetOverlayTexelAspect(m_MainMenuHandle, 1.0f), "SetOverlayTexelAspect");
-
-		CheckOverlayError(vr::VROverlay()->SetOverlayTextureBounds(m_MainMenuHandle, &bounds), "SetOverlayTextureBounds");
-		CheckOverlayError(vr::VROverlay()->ShowOverlay(m_MainMenuHandle), "ShowOverlay");
-
-		if (!m_OverlayTextureSet && m_Game->m_D3D9Device)
-		{
-            vr::Texture_t overlayTex = { m_D3D11Textures[Texture_Overlay], vr::TextureType_DirectX, vr::ColorSpace_Gamma };
-
-            D3D11_TEXTURE2D_DESC desc;
-            m_D3D11Textures[Texture_Overlay]->GetDesc(&desc);
-
-            std::cout << "[VR] Texture_Overlay: " << desc.Width << "x" << desc.Height
-                << " Format=" << desc.Format << "\n";
-
-			CheckOverlayError(vr::VROverlay()->SetOverlayTexture(m_MainMenuHandle, &overlayTex), "SetOverlayTexture");
-			m_OverlayTextureSet = true;
-		}
-
-        /*IDirect3DSurface9* pBackBuf = nullptr, * pOverlaySurf = nullptr;
+        // Copy back buffer to the overlay texture
+        IDirect3DSurface9* pBackBuf = nullptr, * pOverlaySurf = nullptr;
         if (SUCCEEDED(m_Game->m_D3D9Device->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, &pBackBuf)))
         {
             D3DSURFACE_DESC desc;
@@ -308,19 +317,48 @@ void VR::SubmitVRTextures()
             if (SUCCEEDED(m_D3D9Textures[Texture_Overlay].texture->GetSurfaceLevel(0, &pOverlaySurf)))
             {
                 auto hr = m_Game->m_D3D9Device->StretchRect(pBackBuf, NULL, pOverlaySurf, NULL, D3DTEXF_LINEAR);
-                m_Game->m_D3D9Device->ColorFill(pOverlaySurf, nullptr, D3DCOLOR_XRGB(255, 0, 0));
                 pOverlaySurf->Release();
             }
 
             pBackBuf->Release();
-        }*/
-
-        IDirect3DSurface9* pOverlaySurf = nullptr;
-        if (SUCCEEDED(m_D3D9Textures[Texture_Overlay].texture->GetSurfaceLevel(0, &pOverlaySurf)))
-        {
-            m_Game->m_D3D9Device->ColorFill(pOverlaySurf, nullptr, D3DCOLOR_XRGB(255, 0, 0));
-            pOverlaySurf->Release();
         }
+
+        // Set OpenVR overlay texture from the D3D9 -> D3D11 DXGI handle
+		if (!m_OverlayTextureSet && m_Game->m_D3D9Device)
+		{
+            int windowWidth, windowHeight;
+            IMatRenderContext* rndrContext = m_Game->m_MaterialSystem->GetRenderContext();
+            rndrContext->GetWindowSize(windowWidth, windowHeight);
+            rndrContext->Release();
+
+            std::cout << "[VR] WindowSize: Width=" << windowWidth << " Height=" << windowHeight << std::dec << "\n";
+
+            vr::VRTextureBounds_t bounds{
+                0,
+                0,
+                (float)windowWidth / m_RenderWidth,
+                (float)windowHeight / m_RenderHeight
+            };
+
+            CheckOverlayError(vr::VROverlay()->SetOverlayTexelAspect(m_MainMenuHandle, bounds.vMax / bounds.uMax), "SetOverlayTexelAspect");
+
+            CheckOverlayError(vr::VROverlay()->SetOverlayTextureBounds(m_MainMenuHandle, &bounds), "SetOverlayTextureBounds");
+
+            HANDLE sharedHandle = nullptr;
+            IDXGIResource* pDXGIResource = nullptr;
+            if (SUCCEEDED(m_D3D11Textures[Texture_Overlay]->QueryInterface(__uuidof(IDXGIResource), (void**)&pDXGIResource)))
+            {
+                pDXGIResource->GetSharedHandle(&sharedHandle);
+                pDXGIResource->Release();
+            }
+
+            vr::Texture_t overlayTex = { sharedHandle, vr::TextureType_DXGISharedHandle, vr::ColorSpace_Gamma };
+
+			CheckOverlayError(vr::VROverlay()->SetOverlayTexture(m_MainMenuHandle, &overlayTex), "SetOverlayTexture");
+			m_OverlayTextureSet = true;
+		}
+
+        CheckOverlayError(vr::VROverlay()->ShowOverlay(m_MainMenuHandle), "ShowOverlay");
 
 		{
 			vr::Texture_t blank = { m_D3D11Textures[Texture_Blank], vr::TextureType_DirectX, vr::ColorSpace_Gamma };
@@ -339,8 +377,8 @@ void VR::SubmitVRTextures()
 
 	vr::Texture_t leftEye = { m_D3D11Textures[Texture_LeftEye], vr::TextureType_DirectX, vr::ColorSpace_Gamma };
 	vr::Texture_t rightEye = { m_D3D11Textures[Texture_RightEye], vr::TextureType_DirectX, vr::ColorSpace_Gamma };
-	vr::VRCompositor()->Submit(vr::Eye_Left, &leftEye, &(m_TextureBounds)[0], vr::Submit_Default);
-	vr::VRCompositor()->Submit(vr::Eye_Right, &rightEye, &(m_TextureBounds)[1], vr::Submit_Default);
+	vr::VRCompositor()->Submit(vr::Eye_Left, &leftEye, &m_TextureBounds[0], vr::Submit_Default);
+	vr::VRCompositor()->Submit(vr::Eye_Right, &rightEye, &m_TextureBounds[1], vr::Submit_Default);
 
 	m_RenderedNewFrame = false;
 }

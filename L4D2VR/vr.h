@@ -4,18 +4,13 @@
 #include <chrono>
 #include <Windows.h>
 #include <iostream>
+#include <d3d9.h>
+#include <d3d11.h>
 
 #define MAX_STR_LEN 256
 
 class Game;
-struct IDirect3DDevice9;
-struct IDirect3DTexture9;
-struct IDirect3DSurface9;
-struct ID3D11Device;
-struct ID3D11DeviceContext;
-struct ID3D11Texture2D;
 class ITexture;
-
 
 struct TrackedDevicePoseData 
 {
@@ -118,20 +113,20 @@ public:
 		Total
 	};
 
-	ITexture *m_LeftEyeTexture;
-	ITexture *m_RightEyeTexture;
-	ITexture *m_HUDTexture;
-	ITexture *m_OverlayTexture = nullptr;
-	ITexture *m_BlankTexture = nullptr;
+	// Source Engine render targets
+	ITexture* m_Textures[TextureID::Total];
 
 	struct SharedD3D9Texture
 	{
-		IDirect3DTexture9 *texture = nullptr;
+		IDirect3DTexture9* texture = nullptr;
 		HANDLE sharedHandle = nullptr;
 	};
 
+	// Original D3D9 textures + their shared handle 
 	SharedD3D9Texture m_D3D9Textures[TextureID::Total];
-	ID3D11Texture2D *m_D3D11Textures[TextureID::Total] = {};
+
+	// D3D11 texture created from D3D9 shared handle
+	ID3D11Texture2D* m_D3D11Textures[TextureID::Total] = {};
 
 	bool m_IsVREnabled = false;
 	bool m_IsInitialized = false;

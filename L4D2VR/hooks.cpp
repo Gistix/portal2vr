@@ -279,7 +279,7 @@ void __fastcall Hooks::dRenderView(void *ecx, void *edx, CViewSetup &setup, CVie
 
 	//std::cout << "dRenderView - Left Start\n";
 	IMatRenderContext* rndrContext = matSystem->GetRenderContext();
-	rndrContext->SetRenderTarget(m_VR->m_LeftEyeTexture);
+	rndrContext->SetRenderTarget(m_VR->m_Textures[VR::Texture_LeftEye]);
 	rndrContext->Release();
 	hkRenderView.fOriginal(ecx, leftEyeView, hudViewSetup, nClearFlags, whatToDraw);
 	
@@ -290,7 +290,7 @@ void __fastcall Hooks::dRenderView(void *ecx, void *edx, CViewSetup &setup, CVie
 
 	//std::cout << "dRenderView - Right Start\n";
 	rndrContext = matSystem->GetRenderContext();
-	rndrContext->SetRenderTarget(m_VR->m_RightEyeTexture);
+	rndrContext->SetRenderTarget(m_VR->m_Textures[VR::Texture_RightEye]);
 	rndrContext->Release();
 	hkRenderView.fOriginal(ecx, rightEyeView, hudViewSetup, nClearFlags, whatToDraw);
 
@@ -532,9 +532,7 @@ void Hooks::dPushRenderTargetAndViewport(void *ecx, void *edx, ITexture *pTextur
 {
 	if (m_VR->m_CreatedVRTextures && !m_PushedHud)
 	{
-		pTexture = m_VR->m_HUDTexture;
-
-		//pTexture = m_VR->m_RightEyeTexture;
+		pTexture = m_VR->m_Textures[VR::Texture_HUD];
 
 		IMatRenderContext *renderContext = m_Game->m_MaterialSystem->GetRenderContext();
 		renderContext->ClearBuffers(false, true, true);
